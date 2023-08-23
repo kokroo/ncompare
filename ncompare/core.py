@@ -180,7 +180,12 @@ def compare_multiple_random_values(out: Outputter,
             if print_char == "x":
                 num_mismatches += 1
 
-        message = Fore.CYAN + " No mismatches." if num_mismatches == 0 else Fore.RED + f" {num_mismatches} mismatches, out of {num_comparisons} samples."
+        message = (
+            Fore.CYAN + " No mismatches."
+            if num_mismatches == 0
+            else Fore.RED + f" {num_mismatches} mismatches, out of {num_comparisons} samples."
+        )
+
         out.print(message)
         out.print("Done.", colors=False)
 
@@ -222,7 +227,13 @@ def compare_two_nc_files(out: Outputter,
         for group_name in set(nc_a.groups) & set(nc_b.groups):
             out.side_by_side(" ", " ", " ", dash_line=False, highlight_diff=False)
             # Count the number of variables in this group as long as this group exists.
-            out.side_by_side(f"GROUP #{group_name:02}", group_name.strip(), group_name.strip(), dash_line=True, highlight_diff=False)
+            out.side_by_side(
+                f"GROUP #{group_name:02}",
+                group_name.strip(),
+                group_name.strip(),
+                dash_line=True,
+                highlight_diff=False,
+            )
             # Count differences between the lists of variables in this group.
             vars_a_sorted = sorted(nc_a.groups[group_name].variables)
             vars_b_sorted = sorted(nc_b.groups[group_name].variables)
