@@ -190,6 +190,34 @@ def compare_multiple_random_values(out: Outputter,
         out.print("Done.", colors=False)
 
 
+def _process_variables(
+    out: Outputter,
+    nc_a: netCDF4.Dataset,
+    nc_b: netCDF4.Dataset,
+    group_name: str,
+    num_var_diffs: dict,
+    show_chunks: bool,
+    show_attributes: bool,
+):
+    """Process the variables for the given group name and print their properties side by side."""
+    # Count differences between the lists of variables in this group.
+    vars_a_sorted = sorted(nc_a.groups[group_name].variables)
+    vars_b_sorted = sorted(nc_b.groups[group_name].variables)
+    left, right, both = count_diffs(vars_a_sorted, vars_b_sorted)
+    num_var_diffs['left'] += left
+    num_var_diffs['right'] += right
+    num_var_diffs['both'] += both
+    out.side_by_side('num variables in group:', len(vars_a_sorted), len(vars_b_sorted), highlight_diff=True)
+    out.side_by_side('-', '-', '-', dash_line=True)
+
+    # Go through each variable in the current group.
+    for variable in set(vars_a_sorted) & set(vars_b_sorted):
+        # Get and print the properties of each variable
+        _print_var_properties_side_by_side(out,
+                                           _var_properties(nc_a, variable, group_name),
+                                           _var_properties(nc_b, variable, group_name),
+                                           show_chunks=show_chunks, show_attributes=show_attributes)
+
 def compare_two_nc_files(out: Outputter,
                          nc_one: Path,
                          nc_two: Path,
@@ -198,10 +226,9 @@ def compare_two_nc_files(out: Outputter,
                          ) -> tuple[int, int, int]:
     """Go through all groups and all variables, and show them side by side - whether they align and where they don't."""
     out.side_by_side(' ', 'File A', 'File B')
-
     num_var_diffs = {"left": 0, "right": 0, "both": 0}
-    with netCDF4.Dataset(nc_one) as nc_a, netCDF4.Dataset(nc_two) as nc_b:
 
+    with netCDF4.Dataset(nc_one) as nc_a, netCDF4.Dataset(nc_two) as nc_b:
         out.side_by_side('All Variables', ' ', ' ', dash_line=False)
         out.side_by_side('-', '-', '-', dash_line=True)
         # Count differences between the lists of variables in the root group.
@@ -234,28 +261,13 @@ def compare_two_nc_files(out: Outputter,
                 dash_line=True,
                 highlight_diff=False,
             )
-            # Count differences between the lists of variables in this group.
-            vars_a_sorted = sorted(nc_a.groups[group_name].variables)
-            vars_b_sorted = sorted(nc_b.groups[group_name].variables)
-            left, right, both = count_diffs(vars_a_sorted, vars_b_sorted)
-            num_var_diffs['left'] += left
-            num_var_diffs['right'] += right
-            num_var_diffs['both'] += both
 
-            out.side_by_side('num variables in group:', len(vars_a_sorted), len(vars_b_sorted), highlight_diff=True)
-            out.side_by_side('-', '-', '-', dash_line=True)
+            _process_variables(out, nc_a, nc_b, group_name, num_var_diffs, show_chunks, show_attributes)
 
-            # Go through each variable in the current group.
-            for variable in set(vars_a_sorted) & set(vars_b_sorted):
-                # Get and print the properties of each variable
-                _print_var_properties_side_by_side(out,
-                                                   _var_properties(nc_a, variable, group_name),
-                                                   _var_properties(nc_b, variable, group_name),
-                                                   show_chunks=show_chunks, show_attributes=show_attributes)
+        out.side_by_side('-', '-', '-', dash_line=True)
+        out.side_by_side('Total number of shared items:', str(num_var_diffs['both']), str(num_var_diffs['both']))
+        out.side_by_side('Total number of non-shared items:', str(num_var_diffs['left']), str(num_var_diffs['right']))
 
-    out.side_by_side('-', '-', '-', dash_line=True)
-    out.side_by_side('Total number of shared items:', str(num_var_diffs['both']), str(num_var_diffs['both']))
-    out.side_by_side('Total number of non-shared items:', str(num_var_diffs['left']), str(num_var_diffs['right']))
     return num_var_diffs['left'], num_var_diffs['right'], num_var_diffs['both']
 
 def _print_var_properties_side_by_side(out,
