@@ -36,7 +36,10 @@ class Outputter:
         keep_print_history
         """
         # Parse the print history option.
-        self._line_history = [] if keep_print_history else None
+        if keep_print_history:
+            self._line_history = []
+        else:
+            self._line_history = None
 
         if no_color:
             # Replace colorized styles with blank strings.
