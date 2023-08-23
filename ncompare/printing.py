@@ -46,7 +46,9 @@ class Outputter:
             colorama.init(autoreset=True)
 
         # Open a file
+        # pylint: disable=consider-using-with
         self._text_file_obj = open(Path(text_file), "w", encoding="utf-8") if text_file else None
+        # pylint: enable=consider-using-with
 
     def __enter__(self):  # noqa: D105
         return self
