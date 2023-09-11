@@ -330,6 +330,7 @@ def _print_var_properties_side_by_side(out,
 
         # Iterate and print each attribute
         for _, attr_a_key, attr_b_key in common_elements(attrs_a_names, attrs_b_names):
+            print(f"TEST TEST TEST {v_a} , {v_b} , {attr_a_key} , {attr_b_key}")
             attr_a = _get_attribute_value_as_str(v_a, attr_a_key)
             attr_b = _get_attribute_value_as_str(v_b, attr_b_key)
             # Check whether attr_a_key is empty, because it might be if the variable doesn't exist in File A.
@@ -427,8 +428,8 @@ def _print_sample_values(out: Outputter, nc_filepath, groupname: str, varname: s
 
 def _get_attribute_value_as_str(varprops: VarProperties,
                                 attribute_key: str) -> str:
-    attr = varprops.attributes.get(attribute_key)
-    if attr is not None:
+    if attribute_key and (attribute_key in varprops.attributes):
+        attr = varprops.attributes[attribute_key]
         if isinstance(attr, Iterable) and not isinstance(attr, (str, float)):
             # TODO: by truncating a list (or other iterable) here,
             #  we are preventing any subsequent difference checker from detecting
