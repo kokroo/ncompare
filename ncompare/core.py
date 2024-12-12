@@ -29,17 +29,14 @@
 
 """Compare the structure of two NetCDF files."""
 
-import random
-import traceback
 from collections import namedtuple
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Optional, Union
 
 import netCDF4
-import numpy as np
 import xarray as xr
-from colorama import Fore, Style
+from colorama import Fore
 
 from ncompare.printing import Outputter
 from ncompare.sequence_operations import common_elements, count_diffs
@@ -57,8 +54,6 @@ GroupPair = namedtuple(
 def compare(
     nc_a: Union[str, Path],
     nc_b: Union[str, Path],
-    comparison_var_group: Optional[str] = None,
-    comparison_var_name: Optional[str] = None,
     only_diffs: bool = False,
     no_color: bool = False,
     show_chunks: bool = False,
@@ -68,33 +63,29 @@ def compare(
     file_xlsx: Union[str, Path] = "",
     column_widths: Optional[tuple[Union[int, str], Union[int, str], Union[int, str]]] = None,
 ) -> None:
-    """Compare the variables contained within two different NetCDF datasets.
+    """Compare the variables contained within two different netCDF datasets.
 
     Parameters
     ----------
-    nc_a : str
-        filepath to NetCDF4
-    nc_b : str
-        filepath to NetCDF4
-    comparison_var_group : str, optional
-        The name of a group which contains a desired comparison variable
-    comparison_var_name : str, optional
-        The name of a variable for which we want to compare values
-    only_diffs : bool, optional
+    nc_a
+        filepath to the first netCDF
+    nc_b
+        filepath to the second netCDF
+    only_diffs
         Whether to show only the variables/attributes that are different between the two files
-    no_color : bool, default False
+    no_color
         Turns off the use of ANSI escape character sequences for producing colored terminal text
-    show_chunks : bool, default False
+    show_chunks
         Whether to include data chunk sizes in the displayed comparison of variables
-    show_attributes : bool, default False
+    show_attributes
         Whether to include variable attributes in the displayed comparison of variables
-    file_text : str
+    file_text
         filepath destination to save captured text output as a TXT file.
-    file_csv : str
+    file_csv
         filepath destination to save comparison output as comma-separated values (CSV).
-    file_xlsx : str
+    file_xlsx
         filepath destination to save comparison output as an Excel workbook.
-    column_widths : tuple[int | str, int | str, int | str], optional
+    column_widths
         the width in number of characters for each column of the comparison table.
 
     Returns
@@ -127,8 +118,6 @@ def compare(
             out,
             nc_a,
             nc_b,
-            comparison_var_group=comparison_var_group,
-            comparison_var_name=comparison_var_name,
             show_chunks=show_chunks,
             show_attributes=show_attributes,
         )
@@ -146,22 +135,23 @@ def run_through_comparisons(
     out: Outputter,
     nc_a: Union[str, Path],
     nc_b: Union[str, Path],
-    comparison_var_group: Optional[str],
-    comparison_var_name: Optional[str],
     show_chunks: bool,
     show_attributes: bool,
 ) -> None:
-    """Execute a series of comparisons between two NetCDF files.
+    """Execute a series of comparisons between two netCDF files.
 
     Parameters
     ----------
     out
+        instance of Outputter
     nc_a
+        path to the first netCDF file
     nc_b
-    comparison_var_group
-    comparison_var_name
+        path to the second netCDF file
     show_chunks
+        whether to include data chunk sizes in the displayed comparison of variables
     show_attributes
+        whether to include variable attributes in the displayed comparison of variables
     """
     # Show the dimensions of each file and evaluate differences.
     out.print(Fore.LIGHTBLUE_EX + "\nRoot-level Dimensions:", add_to_history=True)
@@ -175,90 +165,10 @@ def run_through_comparisons(
     list_b = _get_groups(nc_b)
     _, _, _ = out.lists_diff(list_a, list_b)
 
-    if comparison_var_group:
-        # Show the variables within the selected group.
-        out.print(
-            Fore.LIGHTBLUE_EX + f"\nVariables within specified group <{comparison_var_group}>:",
-            add_to_history=True,
-        )
-        vlist_a = _get_vars(nc_a, comparison_var_group)
-        vlist_b = _get_vars(nc_b, comparison_var_group)
-        _, _, _ = out.lists_diff(vlist_a, vlist_b)
-
-        # TODO: Remove comparison variable/val?
-        if comparison_var_name:
-            try:
-                # Print the first part of the values array for the selected variable.
-                out.print(
-                    Fore.LIGHTBLUE_EX
-                    + f"\nSample values within specified variable <{comparison_var_name}>:"
-                )
-                _print_sample_values(out, nc_a, comparison_var_group, comparison_var_name)
-                _print_sample_values(out, nc_b, comparison_var_group, comparison_var_name)
-                # compare_sample_values(nc_a, nc_b, groupname=comparison_var_group, varname=comparison_var_name)
-
-                out.print(
-                    Fore.LIGHTBLUE_EX
-                    + f"\nChecking multiple random values within specified variable <{comparison_var_name}>:"
-                )
-                compare_multiple_random_values(
-                    out,
-                    nc_a,
-                    nc_b,
-                    groupname=comparison_var_group,
-                    varname=comparison_var_name,
-                )
-
-            except KeyError:
-                out.print(
-                    Style.BRIGHT
-                    + Fore.RED
-                    + f"\nError when comparing values for variable <{comparison_var_name}> "
-                    f"in group <{comparison_var_group}>."
-                )
-                out.print(traceback.format_exc())
-                out.print("\n")
-        else:
-            out.print(Fore.LIGHTBLACK_EX + "\nNo variable selected for comparison. Skipping..")
-    else:
-        out.print(Fore.LIGHTBLACK_EX + "\nNo variable group selected for comparison. Skipping..")
-
     out.print(Fore.LIGHTBLUE_EX + "\nAll variables:", add_to_history=True)
     _, _, _ = compare_two_nc_files(
         out, nc_a, nc_b, show_chunks=show_chunks, show_attributes=show_attributes
     )
-
-
-def compare_multiple_random_values(
-    out: Outputter,
-    nc_a: Union[str, Path],
-    nc_b: Union[str, Path],
-    groupname: str,
-    varname: str,
-    num_comparisons: int = 100,
-):
-    """Iterate through N random samples, and evaluate whether the differences exceed a threshold."""
-    # Open a variable from each NetCDF
-    nc_var_a = xr.open_dataset(nc_a, backend_kwargs={"group": groupname}).variables[varname]
-    nc_var_b = xr.open_dataset(nc_b, backend_kwargs={"group": groupname}).variables[varname]
-
-    num_mismatches = 0
-    for _ in range(num_comparisons):
-        match_result = _match_random_value(out, nc_var_a, nc_var_b)
-        if match_result is True:
-            out.print(".", colors=False, end="")
-        elif match_result is None:
-            out.print("n", colors=False, end="")
-            num_mismatches += 1
-        else:
-            out.print("x", colors=False, end="")
-            num_mismatches += 1
-
-    if num_mismatches > 0:
-        out.print(Fore.RED + f" {num_mismatches} mismatches, out of {num_comparisons} samples.")
-    else:
-        out.print(Fore.CYAN + " No mismatches.")
-    out.print("Done.", colors=False)
 
 
 def walk_common_groups_tree(
@@ -271,10 +181,14 @@ def walk_common_groups_tree(
 
     Parameters
     ----------
-    top_a_name : str
-    top_a : netCDF4.Dataset or netCDF4.Group
-    top_b_name : str
-    top_b : netCDF4.Dataset or netCDF4.Group
+    top_a_name
+        name of the first group or dataset
+    top_a
+        the first group or dataset
+    top_b_name
+        name of the second group or dataset
+    top_b
+        the second group or dataset
 
     Yields
     ------
@@ -326,7 +240,32 @@ def compare_two_nc_files(
     show_chunks: bool = False,
     show_attributes: bool = False,
 ) -> tuple[int, int, int]:
-    """Go through all groups and all variables, and show them side by side - whether they align and where they don't."""
+    """Go through all groups and all variables, and show them side by side,
+    highlighting whether they align and where they don't.
+
+    Parameters
+    ----------
+    out
+        instance of Outputter
+    nc_one
+        path to the first dataset
+    nc_two
+        path to the second dataset
+    show_chunks
+        whether to include chunks along side variables
+    show_attributes
+        whether to include variable attributes
+
+    Returns
+    -------
+    tuple
+        int
+            number of entries only present in the first (left) dataset
+        int
+            number of entries only present in the second (right) dataset
+        int
+            number of entries present in both the first (left) and second (right) datasets
+    """
     out.side_by_side(" ", "File A", "File B", force_display_even_if_same=True)
 
     num_var_diffs = {"left": 0, "right": 0, "both": 0}
@@ -391,6 +330,7 @@ def _print_group_details_side_by_side(
     show_attributes: bool,
     show_chunks: bool,
 ) -> None:
+    """Align and display group details side by side."""
     out.side_by_side(
         " ",
         " ",
@@ -448,8 +388,10 @@ def _print_var_properties_side_by_side(
     v_b: VarProperties,
     show_chunks: bool = False,
     show_attributes: bool = False,
-):
-    # Gather all variable property pairs first, before printing, so we can decide whether to highlight the variable header
+) -> None:
+    """Align and display variable properties side by side."""
+    # Gather all variable property pairs first, before printing,
+    # so we can decide whether to highlight the variable header.
     pairs_to_check_and_show = [
         (v_a.dtype, v_b.dtype),
         (v_a.shape, v_b.shape),
@@ -457,15 +399,15 @@ def _print_var_properties_side_by_side(
     if show_chunks:
         pairs_to_check_and_show.append((v_a.chunking, v_b.chunking))
     if show_attributes:
-        for attr_a_key, attr_a, attr_b_key, attr_b in get_and_check_variable_attributes(v_a, v_b):
-            # Check whether attr_a_key is empty, because it might be if the variable doesn't exist in File A.
+        for attr_a_key, attr_a, attr_b_key, attr_b in _get_and_check_variable_attributes(v_a, v_b):
+            # Check whether attr_a_key is empty,
+            # because it might be if the variable doesn't exist in File A.
             pairs_to_check_and_show.append((attr_a, attr_b))
     # Scale Factor
-    scale_factor_pair = get_and_check_variable_scale_factor(v_a, v_b)
+    scale_factor_pair = _get_and_check_variable_scale_factor(v_a, v_b)
     if scale_factor_pair:
         pairs_to_check_and_show.append((scale_factor_pair[0], scale_factor_pair[1]))
 
-    # print(f"pairs_to_check_and_show === {pairs_to_check_and_show}")
     there_is_a_difference = False
     for pair in pairs_to_check_and_show:
         if pair[0] != pair[1]:
@@ -477,7 +419,7 @@ def _print_var_properties_side_by_side(
     # if there_is_a_difference:
     #     header_color = Fore.RED
 
-    # If all attributes are the same, and keep-only-diffs is set -> DONT print
+    # If all attributes are the same, and keep-only-diffs is set -> DON'T print
     # If all attributes are the same, and keep-only-diffs is NOT set -> print
     # If some attributes are different -> print no matter else
     if there_is_a_difference or (not out.keep_only_diffs):
@@ -498,8 +440,9 @@ def _print_var_properties_side_by_side(
         out.side_by_side("chunksize:", v_a.chunking, v_b.chunking, highlight_diff=True)
     # Attributes
     if show_attributes:
-        for attr_a_key, attr_a, attr_b_key, attr_b in get_and_check_variable_attributes(v_a, v_b):
-            # Check whether attr_a_key is empty, because it might be if the variable doesn't exist in File A.
+        for attr_a_key, attr_a, attr_b_key, attr_b in _get_and_check_variable_attributes(v_a, v_b):
+            # Check whether attr_a_key is empty,
+            # because it might be if the variable doesn't exist in File A.
             out.side_by_side(
                 f"{attr_a_key if attr_a_key else attr_b_key}:",
                 attr_a,
@@ -508,12 +451,15 @@ def _print_var_properties_side_by_side(
             )
 
     # Scale Factor
-    scale_factor_pair = get_and_check_variable_scale_factor(v_a, v_b)
+    scale_factor_pair = _get_and_check_variable_scale_factor(v_a, v_b)
     if scale_factor_pair:
         out.side_by_side("sf:", scale_factor_pair[0], scale_factor_pair[1], highlight_diff=True)
 
 
-def get_and_check_variable_scale_factor(v_a, v_b) -> Union[None, tuple[str, str]]:
+def _get_and_check_variable_scale_factor(
+    v_a: VarProperties, v_b: VarProperties
+) -> Union[None, tuple[str, str]]:
+    """Get a string representation of the scale factor for two variables."""
     if getattr(v_a.variable, "scale_factor", None):
         sf_a = v_a.variable.scale_factor
     else:
@@ -528,7 +474,10 @@ def get_and_check_variable_scale_factor(v_a, v_b) -> Union[None, tuple[str, str]
         return None
 
 
-def get_and_check_variable_attributes(v_a, v_b):
+def _get_and_check_variable_attributes(
+    v_a: VarProperties, v_b: VarProperties
+) -> Iterator[tuple[str, str, str, str]]:
+    """Go through and yield each attribute pair for two variables."""
     # Get the name of attributes if they exist
     attrs_a_names = []
     if v_a.attributes:
@@ -548,27 +497,29 @@ def _var_properties(group: Union[netCDF4.Dataset, netCDF4.Group], varname: str) 
 
     Parameters
     ----------
-    group : `netCDF4.Dataset` or netCDF4.Group object
-    varname : str
+    group
+        a dataset or group of variables
+    varname
+        the name of the variable
 
     Returns
     -------
-    netCDF4.Variable
-    str
-        dtype of variable values
-    tuple
-        shape of variable
-    tuple
-        chunking
-    dict
-        any other attributes for this variable
+    VarProperties
     """
     if varname:
         the_variable = group.variables[varname]
         v_dtype = str(the_variable.dtype)
         v_shape = str(the_variable.shape).strip()
         v_chunking = str(the_variable.chunking()).strip()
-        v_attributes = {name: getattr(the_variable, name) for name in the_variable.ncattrs()}
+
+        v_attributes = {}
+        for name in the_variable.ncattrs():
+            try:
+                v_attributes[name] = the_variable.getncattr(name)
+            except KeyError as key_err:
+                # Added this check because of "unsupported datatype" error that prevented
+                # fully running comparisons on S5P_OFFL_L1B_IR_UVN collections.
+                v_attributes[name] = f"netCDF error: {str(key_err)}"
     else:
         the_variable = None
         v_dtype = ""
@@ -579,60 +530,8 @@ def _var_properties(group: Union[netCDF4.Dataset, netCDF4.Group], varname: str) 
     return VarProperties(varname, the_variable, v_dtype, v_shape, v_chunking, v_attributes)
 
 
-def _match_random_value(
-    out: Outputter, nc_var_a: xr.Variable, nc_var_b: xr.Variable, thresh: float = 1e-6
-) -> Union[bool, None]:
-    """Check whether a randomly selected data point matches between two variables.
-
-    Returns
-    -------
-    None or bool
-        None if data point is null for one and only one of the variables
-        True if values match
-        False if the difference exceeds the given threshold
-    """
-    # Get a random indexer
-    rand_index = []
-    for dim_length in nc_var_a.shape:
-        rand_index.append(random.randint(0, dim_length - 1))
-    rand_index_tuple = tuple(rand_index)
-
-    # Get the values from each variable
-    value_a = nc_var_a.values[rand_index_tuple]
-    value_b = nc_var_b.values[rand_index_tuple]
-
-    # Check whether null
-    if np.isnan(value_a) and np.isnan(value_b):
-        return True
-    elif np.isnan(value_a) or np.isnan(value_b):
-        return None
-
-    # Evaluate difference between values
-    diff = value_b - value_a
-    if abs(diff) > thresh:
-        out.print()
-        out.print(Fore.RED + f"Difference exceeded threshold (diff == {diff}")
-        out.print(f"var shape: {nc_var_a.shape}", colors=False)
-        out.print(f"indices:   {rand_index_tuple}", colors=False)
-        out.print(f"value a: {value_a}", colors=False)
-        out.print(f"value b: {value_b}", colors=False, end="\n\n")
-        return False
-
-    return True
-
-
-def _print_sample_values(out: Outputter, nc_filepath, groupname: str, varname: str) -> None:
-    comparison_variable = xr.open_dataset(nc_filepath, backend_kwargs={"group": groupname})[varname]
-    vector_of_values = comparison_variable.values.flatten()
-    n_values = len(vector_of_values)
-    if n_values > 100:
-        sample_length = 100
-    else:
-        sample_length = n_values
-    out.print(str(vector_of_values[:sample_length]), colors=False)
-
-
 def _get_attribute_value_as_str(varprops: VarProperties, attribute_key: str) -> str:
+    """Get a string representation of the attribute value."""
     if attribute_key and (attribute_key in varprops.attributes):
         attr = varprops.attributes[attribute_key]
         if isinstance(attr, Iterable) and not isinstance(attr, (str, float)):
@@ -648,6 +547,7 @@ def _get_attribute_value_as_str(varprops: VarProperties, attribute_key: str) -> 
 
 
 def _get_vars(nc_filepath: Union[str, Path], groupname: str) -> list:
+    """Get a list of variables from a netCDF group."""
     try:
         grp = xr.open_dataset(nc_filepath, backend_kwargs={"group": groupname})
     except OSError as err:
@@ -659,12 +559,15 @@ def _get_vars(nc_filepath: Union[str, Path], groupname: str) -> list:
 
 
 def _get_groups(nc_filepath: Union[str, Path]) -> list:
+    """Get a list of groups from a netCDF."""
     with netCDF4.Dataset(nc_filepath) as dataset:
         groups_list = list(dataset.groups.keys())
     return groups_list
 
 
 def _get_dims(nc_filepath: Union[str, Path]) -> list:
+    """Get a list of dimensions from a netCDF."""
+
     def __get_dim_list(decode_times=True):
         with xr.open_dataset(nc_filepath, decode_times=decode_times) as dataset:
             return list(dataset.sizes.items())

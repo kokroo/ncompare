@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+### Changed
+
+- Clean up docstrings, especially removing types that are already annotated in function signature ([#274](https://github.com/nasa/ncompare/issues/274)) ([**@danielfromearth**](https://github.com/danielfromearth))
+
+### Fixed
+
+- Catch "unsupported datatype" exception from netCDF library ([#268](https://github.com/nasa/ncompare/pull/268)) ([**@danielfromearth**](https://github.com/danielfromearth))
+
+### Removed
+
+- **Breaking:** remove randomized value check logic and from API ([#271](https://github.com/nasa/ncompare/pull/271)) ([**@danielfromearth**](https://github.com/danielfromearth))
+
 ## [1.11.0] - 2024-11-14
 
 ### Added
